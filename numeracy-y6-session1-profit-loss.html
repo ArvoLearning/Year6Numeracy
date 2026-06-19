@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pop-Up Profit Lab – Session 1</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cream:    #fbf3e4;
+  --paper:    #fffdf8;
+  --till:     #1f4d3a;
+  --till-d:   #143527;
+  --gold:     #e8a33d;
+  --gold-d:   #c4811f;
+  --red:      #d8453a;
+  --green:    #2f9e58;
+  --ink:      #20231f;
+  --stripe1:  #d8453a;
+  --stripe2:  #fbf3e4;
+  --receipt-shadow: 0 14px 30px rgba(31,77,58,.25);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Archivo', sans-serif;
+  background: var(--cream);
+  color: var(--ink);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* subtle dot texture like canvas/market fabric */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: radial-gradient(circle, rgba(31,77,58,.05) 1.5px, transparent 1.5px);
+  background-size: 18px 18px;
+}
+
+#app {
+  position: relative; z-index: 1;
+  max-width: 1000px; margin: 0 auto;
+  padding: 0 18px 80px;
+}
+
+/* ── AWNING HEADER ── */
+.awning {
+  position: relative;
+  margin-bottom: 0;
+  animation: unfurl .6s ease both;
+  transform-origin: top;
+}
+@keyframes unfurl { from{opacity:0;transform:scaleY(.7)} to{opacity:1;transform:scaleY(1)} }
+
+.awning-stripes {
+  display: flex; height: 34px; border-radius: 14px 14px 0 0; overflow: hidden;
+  box-shadow: 0 4px 0 rgba(0,0,0,.08);
+}
+.awning-stripes div { flex: 1; }
+.awning-stripes div:nth-child(odd) { background: var(--stripe1); }
+.awning-stripes div:nth-child(even) { background: var(--stripe2); }
+.awning-stripes::after { content:''; }
+.awning-fringe {
+  display: flex; height: 14px;
+}
+.awning-fringe div {
+  flex: 1;
+  background: var(--stripe1);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  margin: 0 1px;
+}
+.awning-fringe div:nth-child(even) { background: var(--cream); clip-path: polygon(0 0,100% 0,50% 100%); opacity:0; }
+
+.shop-header {
+  background: var(--till); color: var(--paper);
+  padding: 22px 28px 26px; margin-top: 0;
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 14px 28px rgba(20,53,39,.35);
+  position: relative; overflow: hidden;
+}
+.shop-header::after {
+  content: '💰'; position: absolute; right: -14px; bottom: -22px;
+  font-size: 7rem; opacity: .08; transform: rotate(-12deg);
+}
+.sh-row { display: flex; align-items: center; gap: 18px; position: relative; z-index: 1; }
+.sh-sign {
+  flex-shrink: 0; background: var(--gold); color: var(--till-d);
+  border-radius: 10px; padding: 10px 16px; text-align: center;
+  border: 3px solid var(--paper); transform: rotate(-3deg);
+  box-shadow: 3px 4px 0 rgba(0,0,0,.2);
+}
+.sh-sign .sign-num { font-family: 'Archivo Black', sans-serif; font-size: 2rem; line-height: 1; }
+.sh-sign .sign-label { font-size: .55rem; letter-spacing: .12em; font-weight: 700; }
+.sh-text { flex: 1; }
+.sh-text .sh-eyebrow { font-size: .68rem; letter-spacing: .2em; text-transform: uppercase; color: var(--gold); font-weight: 700; margin-bottom: 6px; }
+.sh-text h1 { font-family: 'Archivo Black', sans-serif; font-size: clamp(1.6rem,4.6vw,2.6rem); line-height: 1.1; }
+.sh-text .sh-sub { font-size: .82rem; color: #cfe0d6; margin-top: 8px; font-weight: 600; }
+.sh-icon { flex-shrink: 0; font-size: 2.6rem; }
+
+/* ── NAV: PRICE TAGS ── */
+.tag-nav {
+  display: flex; gap: 10px; margin: 22px 0; flex-wrap: wrap;
+  animation: unfurl .7s .1s ease both;
+}
+.price-tag {
+  flex: 1; min-width: 110px; position: relative;
+  background: var(--gold); color: var(--till-d);
+  border-radius: 6px; padding: 10px 12px 10px 18px;
+  cursor: pointer; transition: all .22s;
+  font-family: 'Archivo', sans-serif; font-weight: 800; font-size: .76rem;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  border: 2.5px solid var(--till-d);
+}
+.price-tag::before {
+  content: ''; position: absolute; left: -7px; top: 50%; transform: translateY(-50%);
+  width: 12px; height: 12px; background: var(--cream); border-radius: 50%;
+  border: 2.5px solid var(--till-d);
+}
+.price-tag .pt-icon { font-size: 1.2rem; }
+.price-tag.active {
+  background: var(--till); color: var(--paper); border-color: var(--gold);
+  transform: translateY(-4px) rotate(-2deg);
+  box-shadow: 3px 5px 0 rgba(0,0,0,.2);
+}
+.price-tag:hover:not(.active) { background: #f0bc63; }
+
+/* ── RECEIPT PANEL ── */
+.receipt {
+  background: var(--paper);
+  border-radius: 6px;
+  box-shadow: var(--receipt-shadow);
+  display: none; overflow: hidden;
+  position: relative;
+  animation: receiptPrint .45s ease both;
+  border: 1px solid #e8ddc4;
+}
+.receipt.active { display: block; }
+@keyframes receiptPrint { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:none} }
+
+.receipt-zigzag {
+  height: 12px;
+  background:
+    linear-gradient(135deg, var(--paper) 25%, transparent 25%) 0 8px,
+    linear-gradient(225deg, var(--paper) 25%, transparent 25%) 0 8px,
+    var(--cream);
+  background-size: 16px 16px;
+}
+
+.receipt-head {
+  display: flex; align-items: center; gap: 14px;
+  padding: 18px 26px; border-bottom: 2px dashed #ddd0ad;
+  background: #fffef9;
+}
+.rh-icon {
+  width: 48px; height: 48px; border-radius: 50%; background: var(--till);
+  color: var(--gold); display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; flex-shrink: 0;
+}
+.rh-title h2 { font-family: 'Archivo Black', sans-serif; font-size: 1.15rem; color: var(--till); letter-spacing: .01em; }
+.rh-title p { font-size: .76rem; color: #889; margin-top: 2px; }
+.rh-time { margin-left: auto; flex-shrink: 0; background: var(--gold); color: var(--till-d); border-radius: 14px; padding: 4px 14px; font-size: .72rem; font-weight: 800; }
+
+.receipt-body { padding: 26px; }
+
+/* ── HOOK PUZZLE ── */
+.hook-card {
+  background: #fff8e8; border: 2.5px solid var(--gold); border-radius: 12px;
+  padding: 20px; margin-bottom: 18px;
+}
+.hook-card .hc-label { font-family: 'Archivo Black', sans-serif; font-size: 1rem; color: var(--gold-d); margin-bottom: 12px; }
+.mental-q { background: white; border-radius: 10px; padding: 16px; margin-bottom: 12px; border: 2px solid #eee; }
+.mental-q .mq-text { font-family: 'Caveat', cursive; font-size: 1.4rem; color: var(--ink); margin-bottom: 10px; }
+.mq-btn {
+  background: var(--till); color: white; border: none; border-radius: 8px;
+  padding: 7px 18px; font-weight: 700; font-size: .82rem; cursor: pointer; transition: all .2s;
+}
+.mq-btn:hover { background: var(--till-d); transform: translateY(-1px); }
+.mq-ans { display: none; margin-top: 10px; background: #e2f5e8; border-radius: 8px; padding: 10px 14px; font-weight: 800; color: var(--green); font-size: 1.05rem; }
+.mq-ans.show { display: block; animation: receiptPrint .3s ease; }
+
+/* ── LI / SC ── */
+.li-stamp {
+  background: var(--till); color: white; border-radius: 10px;
+  padding: 16px 20px; margin-bottom: 16px; border: 2px dashed var(--gold);
+}
+.li-stamp .li-tag { font-family: 'Archivo Black', sans-serif; font-size: .85rem; letter-spacing: .04em; color: var(--gold); margin-bottom: 6px; }
+.li-stamp p { font-size: .9rem; font-weight: 600; line-height: 1.6; }
+
+.sc-stamp {
+  background: #e2f5e8; border: 2px solid var(--green); border-radius: 10px;
+  padding: 16px 20px; margin-bottom: 18px;
+}
+.sc-stamp .sc-tag { font-family: 'Archivo Black', sans-serif; font-size: .85rem; letter-spacing: .04em; color: var(--green); margin-bottom: 10px; }
+.sc-row4 { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 8px; font-size: .87rem; font-weight: 600; line-height: 1.5; }
+.sc-check4 {
+  width: 21px; height: 21px; border: 2.5px solid var(--green); border-radius: 5px;
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all .2s; font-size: .74rem; margin-top: 1px; background: white;
+}
+.sc-check4.done { background: var(--green); color: white; }
+
+/* ── KEY TERMS ── */
+.terms-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 18px; }
+@media(max-width:680px){ .terms-grid { grid-template-columns: repeat(2,1fr); } }
+.term-card {
+  border-radius: 12px; padding: 16px 12px; text-align: center; cursor: pointer;
+  transition: all .25s; border: 2.5px solid transparent;
+}
+.term-card.cost   { background: #ffe5e0; border-color: var(--red); }
+.term-card.revenue{ background: #e0f0ff; border-color: #3a7dc0; }
+.term-card.profit { background: #e2f5e8; border-color: var(--green); }
+.term-card.loss   { background: #ffe8d0; border-color: var(--gold-d); }
+.term-card:hover { transform: translateY(-4px); }
+.term-card .tc-icon { font-size: 1.8rem; margin-bottom: 6px; }
+.term-card h4 { font-family: 'Archivo Black', sans-serif; font-size: .9rem; margin-bottom: 6px; }
+.term-card p { font-size: .74rem; line-height: 1.4; color: #445; }
+
+.formula-band {
+  background: var(--till); color: var(--gold); border-radius: 12px;
+  padding: 16px 20px; text-align: center; margin-bottom: 18px;
+  font-family: 'Archivo Black', sans-serif; font-size: 1.15rem; letter-spacing: .02em;
+}
+.formula-band span { color: white; }
+
+/* ── BUSINESS VENTURE CALCULATOR ── */
+.venture-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+.vt-btn {
+  flex: 1; background: #f0ebe0; border: 2px solid var(--ink); border-radius: 8px;
+  padding: 9px; font-family: 'Archivo', sans-serif; font-weight: 800; font-size: .85rem;
+  cursor: pointer; transition: all .2s;
+}
+.vt-btn.active { background: var(--gold); }
+
+.venture-panel { display: none; }
+.venture-panel.active { display: block; animation: receiptPrint .3s ease; }
+
+.venture-card {
+  background: #fffdf6; border: 2px solid var(--ink); border-radius: 12px;
+  padding: 20px; margin-bottom: 16px;
+}
+.vc-scenario { font-size: .9rem; font-weight: 600; line-height: 1.6; margin-bottom: 14px; }
+.vc-scenario strong { color: var(--till); }
+.vc-stats { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.vc-stat { flex: 1; min-width: 140px; background: white; border: 2px solid #ddd; border-radius: 8px; padding: 10px 14px; text-align: center; }
+.vc-stat .vs-label { font-size: .68rem; font-weight: 700; color: #889; text-transform: uppercase; letter-spacing: .06em; }
+.vc-stat .vs-val { font-family: 'Archivo Black', sans-serif; font-size: 1.3rem; color: var(--till); margin-top: 2px; }
+
+.calc-step {
+  background: white; border-radius: 10px; padding: 14px 18px; margin-bottom: 10px;
+  border: 2px solid #e8e0cc;
+}
+.calc-step .cs-q { font-size: .87rem; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+.calc-step .cs-formula { font-family: 'Archivo', sans-serif; font-size: .8rem; color: #889; margin-bottom: 8px; }
+.reveal-amt {
+  display: inline-flex; align-items: center; cursor: pointer;
+  background: #f0ebe0; border: 2px dashed #aaa; border-radius: 6px;
+  padding: 5px 16px; font-family: 'Archivo Black', sans-serif; font-size: 1rem; color: transparent;
+  transition: all .3s; min-width: 90px; justify-content: center;
+}
+.reveal-amt::before { content: 'tap to reveal'; color: #999; font-size: .7rem; font-weight: 600; font-family: 'Archivo'; }
+.reveal-amt.shown { color: var(--till); border-style: solid; border-color: var(--green); background: #e2f5e8; }
+.reveal-amt.shown::before { content: ''; }
+.reveal-amt.loss-amt.shown { color: var(--red); border-color: var(--red); background: #ffe5e0; }
+
+.verdict-banner {
+  display: none; border-radius: 10px; padding: 16px 20px; margin-top: 12px;
+  font-weight: 700; font-size: .92rem; align-items: center; gap: 10px;
+}
+.verdict-banner.show { display: flex; animation: receiptPrint .35s ease; }
+.verdict-banner.profit-v { background: #e2f5e8; border: 2px solid var(--green); color: #1a7a3a; }
+.verdict-banner.loss-v { background: #ffe5e0; border: 2px solid var(--red); color: #a82c20; }
+
+/* ── PRACTICE PROBLEMS ── */
+.problem-card {
+  background: #fffdf6; border: 2px solid var(--ink); border-radius: 12px;
+  padding: 20px; margin-bottom: 16px; position: relative;
+}
+.problem-card .pc-tag {
+  position: absolute; top: -13px; left: 16px; background: var(--red); color: white;
+  font-family: 'Archivo Black', sans-serif; font-size: .78rem; padding: 3px 12px;
+  border-radius: 12px; border: 2px solid var(--ink);
+}
+.problem-card .pc-text { font-size: .92rem; font-weight: 600; line-height: 1.6; margin: 10px 0 14px; }
+.problem-card .pc-text strong { color: var(--till); }
+
+.setup-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+@media(max-width:600px){ .setup-grid { grid-template-columns: 1fr; } }
+.setup-box {
+  background: white; border: 2px solid #ddd; border-radius: 8px; padding: 10px 12px;
+}
+.setup-box .sb-label { font-size: .68rem; font-weight: 700; color: #889; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+.setup-box .sb-formula { font-size: .78rem; color: #667; margin-bottom: 6px; font-family: 'Archivo'; }
+
+.solve-btn {
+  background: var(--till); color: white; border: none; border-radius: 8px;
+  padding: 9px 20px; font-weight: 800; font-size: .84rem; cursor: pointer; transition: all .2s;
+}
+.solve-btn:hover { background: var(--till-d); transform: translateY(-1px); }
+.solve-btn:disabled { background: #bbb; cursor: not-allowed; transform: none; }
+
+.full-solution {
+  display: none; margin-top: 14px; background: #f0f9f2; border: 2px solid var(--green);
+  border-radius: 10px; padding: 16px 18px;
+}
+.full-solution.show { display: block; animation: receiptPrint .35s ease; }
+.full-solution .fs-line { font-size: .85rem; font-weight: 600; margin-bottom: 6px; line-height: 1.5; }
+.full-solution .fs-final { font-family: 'Archivo Black', sans-serif; font-size: 1.2rem; color: var(--till); margin-top: 8px; }
+.full-solution.loss-solution { background: #fff0ec; border-color: var(--red); }
+.full-solution.loss-solution .fs-final { color: var(--red); }
+
+/* ── WRAP-UP ── */
+.goal-poll {
+  background: #fffdf6; border: 2px solid var(--ink); border-radius: 12px;
+  padding: 22px; margin-bottom: 18px; text-align: center;
+}
+.goal-poll .gp-icon { font-size: 2rem; margin-bottom: 10px; }
+.goal-poll h3 { font-family: 'Archivo Black', sans-serif; font-size: 1.2rem; color: var(--till); margin-bottom: 8px; }
+.goal-poll p { font-size: .85rem; color: #667; margin-bottom: 16px; }
+.goal-opts { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.goal-opt {
+  background: #f0ebe0; border: 2px solid var(--ink); border-radius: 10px;
+  padding: 12px 20px; cursor: pointer; transition: all .2s; font-weight: 700; font-size: .85rem;
+}
+.goal-opt:hover { background: var(--gold); }
+.goal-opt.correct-pick { background: var(--green); color: white; border-color: var(--green); }
+.goal-opt.wrong-pick { background: #ffd0c8; border-color: var(--red); }
+.goal-explain {
+  display: none; margin-top: 16px; background: #e2f5e8; border-radius: 10px;
+  padding: 14px; font-size: .85rem; font-weight: 600; line-height: 1.6; color: #1a7a3a;
+}
+.goal-explain.show { display: block; animation: receiptPrint .35s ease; }
+
+.summary-receipt {
+  background: white; border: 2px dashed #ccc; border-radius: 10px; padding: 20px; margin-bottom: 16px;
+  font-family: 'Archivo', sans-serif;
+}
+.summary-receipt h3 { font-family: 'Archivo Black', sans-serif; font-size: 1rem; margin-bottom: 12px; text-align: center; color: var(--till); }
+.sr-line { display: flex; justify-content: space-between; font-size: .85rem; padding: 6px 0; border-bottom: 1px dashed #ddd; }
+.sr-line:last-child { border-bottom: none; font-weight: 800; color: var(--till); }
+.sr-line span:first-child { color: #667; }
+
+.checklist4 { background: #e2f5e8; border: 2px solid var(--green); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+.checklist4 h3 { font-family: 'Archivo Black', sans-serif; font-size: 1rem; margin-bottom: 12px; color: #1a7a3a; }
+.cl4-row { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; margin-bottom: 9px; font-size: .85rem; font-weight: 600; line-height: 1.5; }
+.cl4-box { width: 20px; height: 20px; border: 2px solid var(--green); border-radius: 5px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: .7rem; transition: all .2s; margin-top: 1px; background: white; }
+.cl4-box.ticked { background: var(--green); color: white; }
+
+.complete-banner {
+  display: none; background: var(--till); color: white; border-radius: 12px;
+  padding: 22px; text-align: center; border: 2px solid var(--gold);
+}
+.complete-banner.show { display: block; animation: receiptPrint .4s ease; }
+.complete-banner h3 { font-family: 'Archivo Black', sans-serif; font-size: 1.3rem; color: var(--gold); margin-bottom: 8px; }
+.complete-banner p { font-size: .85rem; color: #cfe0d6; line-height: 1.6; }
+
+/* ── WHITEBOARD ── */
+.wb4 { background: white; border: 2px dashed #ccc; border-radius: 10px; padding: 14px; margin-top: 14px; }
+.wb4 label { font-family: 'Archivo Black', sans-serif; font-size: .78rem; color: var(--till); display: block; margin-bottom: 6px; }
+.wb4 textarea { width: 100%; border: none; resize: vertical; outline: none; font-family: 'Caveat', cursive; font-size: 1.15rem; color: var(--ink); min-height: 75px; line-height: 1.6; }
+.wb4 textarea::placeholder { color: #bbb; font-family: 'Archivo', sans-serif; font-size: .8rem; }
+
+/* ── NAV FOOTER ── */
+.nav-foot4 { display: flex; justify-content: space-between; align-items: center; margin: 24px 0; }
+.nav-btn4 {
+  background: var(--till); color: white; border: none; border-radius: 8px;
+  padding: 11px 22px; font-family: 'Archivo', sans-serif; font-weight: 800; font-size: .9rem;
+  cursor: pointer; transition: all .2s;
+}
+.nav-btn4:hover { background: var(--till-d); transform: translateY(-2px); }
+.nav-btn4:disabled { opacity: .3; cursor: not-allowed; transform: none; }
+.nav-btn4.next { background: var(--gold); color: var(--till-d); }
+.step-counter4 { font-size: .78rem; color: #998; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ══════ AWNING + HEADER ══════ -->
+  <div class="awning">
+    <div class="awning-stripes">
+      <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+    </div>
+    <div class="shop-header">
+      <div class="sh-row">
+        <div class="sh-sign">
+          <div class="sign-num">1</div>
+          <div class="sign-label">SESSION</div>
+        </div>
+        <div class="sh-text">
+          <div class="sh-eyebrow">🏪 Pop-Up Profit Lab · Numeracy Module</div>
+          <h1>Cost, Revenue, Profit &amp; Loss</h1>
+          <div class="sh-sub">Year 6 · 50 minutes · Run your own mini business with maths</div>
+        </div>
+        <div class="sh-icon">🧾</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════ NAV: PRICE TAGS ══════ -->
+  <nav class="tag-nav">
+    <div class="price-tag active" onclick="goTo(0)"><span class="pt-icon">🪙</span>WARM-UP</div>
+    <div class="price-tag" onclick="goTo(1)"><span class="pt-icon">📖</span>BIZ BASICS</div>
+    <div class="price-tag" onclick="goTo(2)"><span class="pt-icon">🎒</span>VENTURE</div>
+    <div class="price-tag" onclick="goTo(3)"><span class="pt-icon">🏬</span>REAL SHOPS</div>
+    <div class="price-tag" onclick="goTo(4)"><span class="pt-icon">🎯</span>WRAP-UP</div>
+  </nav>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- RECEIPT 0 · WARM-UP + LI/SC                   -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="receipt active" id="r0">
+    <div class="receipt-head">
+      <div class="rh-icon">🪙</div>
+      <div class="rh-title">
+        <h2>WARM-UP — MENTAL MONEY MATH</h2>
+        <p>Quick calculations to start your business brain</p>
+      </div>
+      <span class="rh-time">⏱ 5 mins</span>
+    </div>
+    <div class="receipt-body">
+
+      <div class="hook-card">
+        <div class="hc-label">⚡ QUICK FIRE</div>
+        <div class="mental-q">
+          <div class="mq-text">"If one pencil costs $1.50, how much do 3 pencils cost?"</div>
+          <button class="mq-btn" onclick="showMQ(this,'$4.50','3 × $1.50 = $4.50')">Reveal</button>
+          <div class="mq-ans"></div>
+        </div>
+        <div class="mental-q">
+          <div class="mq-text">"You sell a lemonade for $2 and it cost you $1 to make. How much money did you make?"</div>
+          <button class="mq-btn" onclick="showMQ(this,'$1.00 profit','$2.00 (revenue) − $1.00 (cost) = $1.00 profit')">Reveal</button>
+          <div class="mq-ans"></div>
+        </div>
+      </div>
+
+      <div class="li-stamp">
+        <div class="li-tag">🎯 LEARNING INTENTION</div>
+        <p>I am learning to <strong>calculate the cost of multiple items</strong> using multiplication, and to determine <strong>profit or loss</strong> in simple transactions.</p>
+      </div>
+
+      <div class="sc-stamp">
+        <div class="sc-tag">✅ SUCCESS CRITERIA — I can…</div>
+        <div class="sc-row4">
+          <div class="sc-check4" onclick="this.classList.toggle('done');this.textContent=this.classList.contains('done')?'✓':''"> </div>
+          <span>Calculate the <strong>total cost</strong> of buying or making several identical items using multiplication.</span>
+        </div>
+        <div class="sc-row4">
+          <div class="sc-check4" onclick="this.classList.toggle('done');this.textContent=this.classList.contains('done')?'✓':''"> </div>
+          <span>Calculate <strong>total revenue</strong> from selling several identical items.</span>
+        </div>
+        <div class="sc-row4">
+          <div class="sc-check4" onclick="this.classList.toggle('done');this.textContent=this.classList.contains('done')?'✓':''"> </div>
+          <span>Work out whether a transaction results in a <strong>profit or a loss</strong>, and by how much.</span>
+        </div>
+      </div>
+
+      <div class="wb4">
+        <label>📝 Working Space</label>
+        <textarea placeholder="Write your working out for the warm-up questions here…"></textarea>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- RECEIPT 1 · BUSINESS BASICS                   -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="receipt" id="r1">
+    <div class="receipt-head">
+      <div class="rh-icon">📖</div>
+      <div class="rh-title">
+        <h2>BUSINESS BASICS</h2>
+        <p>Revenue, Cost, Profit &amp; Loss — the language of business</p>
+      </div>
+      <span class="rh-time">⏱ 10 mins</span>
+    </div>
+    <div class="receipt-body">
+
+      <p style="font-size:.9rem;line-height:1.65;margin-bottom:18px;color:#334;">
+        Every business — even a small one like a lemonade stand — uses these four key ideas. Tap each card to learn what it means.
+      </p>
+
+      <div class="terms-grid">
+        <div class="term-card cost" onclick="this.classList.toggle('flipped')">
+          <div class="tc-icon">💸</div>
+          <h4>COST</h4>
+          <p>How much it costs YOU to make or buy something.</p>
+        </div>
+        <div class="term-card revenue" onclick="this.classList.toggle('flipped')">
+          <div class="tc-icon">💰</div>
+          <h4>REVENUE</h4>
+          <p>How much money you EARN from selling something. (Also called income.)</p>
+        </div>
+        <div class="term-card profit" onclick="this.classList.toggle('flipped')">
+          <div class="tc-icon">📈</div>
+          <h4>PROFIT</h4>
+          <p>When Revenue is MORE than Cost. You made money!</p>
+        </div>
+        <div class="term-card loss" onclick="this.classList.toggle('flipped')">
+          <div class="tc-icon">📉</div>
+          <h4>LOSS</h4>
+          <p>When Cost is MORE than Revenue. You lost money.</p>
+        </div>
+      </div>
+
+      <div class="formula-band">
+        PROFIT / LOSS = <span>REVENUE − COST</span>
+      </div>
+
+      <div style="background:#fff8e8;border:2px solid var(--gold);border-radius:10px;padding:16px 20px;margin-bottom:16px;">
+        <p style="font-size:.85rem;font-weight:700;line-height:1.6;">
+          💡 <strong>Quick check:</strong> If Revenue = $50 and Cost = $30, is that a profit or loss? 
+          <span style="cursor:pointer;text-decoration:underline;color:var(--till);" onclick="this.nextElementSibling.style.display='inline'">Click to check</span>
+          <span style="display:none;color:var(--green);font-weight:800;"> → PROFIT of $20! ($50 − $30 = $20)</span>
+        </p>
+      </div>
+
+      <div class="wb4">
+        <label>📝 In Your Own Words</label>
+        <textarea placeholder="Explain to a friend: what's the difference between cost and revenue?"></textarea>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- RECEIPT 2 · BUSINESS VENTURE                  -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="receipt" id="r2">
+    <div class="receipt-head">
+      <div class="rh-icon">🎒</div>
+      <div class="rh-title">
+        <h2>BUSINESS VENTURE — START YOUR STALL</h2>
+        <p>Calculate cost, revenue and profit for two products</p>
+      </div>
+      <span class="rh-time">⏱ 15 mins</span>
+    </div>
+    <div class="receipt-body">
+
+      <div class="venture-tabs">
+        <button class="vt-btn active" onclick="switchVenture(0)">🧵 Friendship Bracelets</button>
+        <button class="vt-btn" onclick="switchVenture(1)">🧁 Cupcake Stand</button>
+      </div>
+
+      <!-- VENTURE 1: BRACELETS -->
+      <div class="venture-panel active" id="vp0">
+        <div class="venture-card">
+          <div class="vc-scenario">🧵 <strong>Scenario:</strong> You decide to make <strong>friendship bracelets</strong> to sell.</div>
+          <div class="vc-stats">
+            <div class="vc-stat"><div class="vs-label">Cost per bracelet</div><div class="vs-val">$0.75</div></div>
+            <div class="vc-stat"><div class="vs-label">Sell price each</div><div class="vs-val">$2.00</div></div>
+            <div class="vc-stat"><div class="vs-label">You make &amp; sell</div><div class="vs-val">10</div></div>
+          </div>
+
+          <div class="calc-step">
+            <div class="cs-q">1️⃣ How much does it cost to make 10 bracelets?</div>
+            <div class="cs-formula">$0.75 × 10 = ?</div>
+            <div class="reveal-amt" onclick="revealAmt(this,'$7.50')"></div>
+          </div>
+          <div class="calc-step">
+            <div class="cs-q">2️⃣ How much revenue from selling 10 bracelets?</div>
+            <div class="cs-formula">$2.00 × 10 = ?</div>
+            <div class="reveal-amt" onclick="revealAmt(this,'$20.00')"></div>
+          </div>
+          <div class="calc-step">
+            <div class="cs-q">3️⃣ What is your total profit (or loss)?</div>
+            <div class="cs-formula">$20.00 − $7.50 = ?</div>
+            <div class="reveal-amt" onclick="revealAmt(this,'$12.50')"></div>
+          </div>
+
+          <button class="solve-btn" onclick="showVerdict('v1')">Show Final Verdict 🏆</button>
+          <div class="verdict-banner profit-v" id="v1verdict">
+            📈 <strong>PROFIT of $12.50!</strong> You spent $7.50 to make 10 bracelets and earned $20.00 selling them — a healthy profit!
+          </div>
+        </div>
+      </div>
+
+      <!-- VENTURE 2: CUPCAKES -->
+      <div class="venture-panel" id="vp1">
+        <div class="venture-card">
+          <div class="vc-scenario">🧁 <strong>Scenario:</strong> You decide to bake and sell <strong>cupcakes</strong> instead.</div>
+          <div class="vc-stats">
+            <div class="vc-stat"><div class="vs-label">Cost per cupcake</div><div class="vs-val">$1.20</div></div>
+            <div class="vc-stat"><div class="vs-label">Sell price each</div><div class="vs-val">$1.50</div></div>
+            <div class="vc-stat"><div class="vs-label">You make &amp; sell</div><div class="vs-val">10</div></div>
+          </div>
+
+          <div class="calc-step">
+            <div class="cs-q">1️⃣ How much does it cost to make 10 cupcakes?</div>
+            <div class="cs-formula">$1.20 × 10 = ?</div>
+            <div class="reveal-amt" onclick="revealAmt(this,'$12.00')"></div>
+          </div>
+          <div class="calc-step">
+            <div class="cs-q">2️⃣ How much revenue from selling 10 cupcakes?</div>
+            <div class="cs-formula">$1.50 × 10 = ?</div>
+            <div class="reveal-amt" onclick="revealAmt(this,'$15.00')"></div>
+          </div>
+          <div class="calc-step">
+            <div class="cs-q">3️⃣ What is your total profit (or loss)?</div>
+            <div class="cs-formula">$15.00 − $12.00 = ?</div>
+            <div class="reveal-amt" onclick="revealAmt(this,'$3.00')"></div>
+          </div>
+
+          <button class="solve-btn" onclick="showVerdict('v2')">Show Final Verdict 🏆</button>
+          <div class="verdict-banner profit-v" id="v2verdict">
+            📈 <strong>PROFIT of $3.00!</strong> Smaller margin than the bracelets ($0.30 profit per cupcake vs $1.25 per bracelet) — which product was the better business idea?
+          </div>
+        </div>
+      </div>
+
+      <div class="wb4">
+        <label>📝 Compare the Two Businesses</label>
+        <textarea placeholder="Which product made more PROFIT PER ITEM — bracelets or cupcakes? Show your working for the profit-per-item calculation."></textarea>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- RECEIPT 3 · REAL-WORLD SCENARIOS              -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="receipt" id="r3">
+    <div class="receipt-head">
+      <div class="rh-icon">🏬</div>
+      <div class="rh-title">
+        <h2>REAL-WORLD SCENARIOS</h2>
+        <p>Set up and solve multi-step profit &amp; loss problems</p>
+      </div>
+      <span class="rh-time">⏱ 15 mins</span>
+    </div>
+    <div class="receipt-body">
+
+      <!-- Problem 1: T-shirts -->
+      <div class="problem-card">
+        <div class="pc-tag">PROBLEM 1 · 👕 T-Shirt Shop</div>
+        <div class="pc-text">A shop buys <strong>10 t-shirts</strong> for <strong>$12 each</strong>. They sell each t-shirt for <strong>$25</strong>. How much profit do they make if they sell all 10 t-shirts?</div>
+
+        <div class="setup-grid">
+          <div class="setup-box">
+            <div class="sb-label">Cost</div>
+            <div class="sb-formula">unit cost × number</div>
+            <div class="reveal-amt" onclick="revealAmt(this,'$120.00')"></div>
+          </div>
+          <div class="setup-box">
+            <div class="sb-label">Revenue</div>
+            <div class="sb-formula">unit price × number</div>
+            <div class="reveal-amt" onclick="revealAmt(this,'$250.00')"></div>
+          </div>
+          <div class="setup-box">
+            <div class="sb-label">Profit / Loss</div>
+            <div class="sb-formula">revenue − cost</div>
+            <div class="reveal-amt" onclick="revealAmt(this,'$130.00')"></div>
+          </div>
+        </div>
+
+        <button class="solve-btn" onclick="showSolution('sol1')">Show Full Solution ✅</button>
+        <div class="full-solution" id="sol1">
+          <div class="fs-line">Cost = 10 × $12 = $120.00</div>
+          <div class="fs-line">Revenue = 10 × $25 = $250.00</div>
+          <div class="fs-line">Profit = $250.00 − $120.00 = </div>
+          <div class="fs-final">PROFIT of $130.00 📈</div>
+        </div>
+      </div>
+
+      <!-- Problem 2: Cookies (not all sold) -->
+      <div class="problem-card">
+        <div class="pc-tag">PROBLEM 2 · 🍪 Cookie Stand (Tricky!)</div>
+        <div class="pc-text">You bake <strong>20 cookies</strong>. Ingredients cost <strong>$0.50 per cookie</strong>. You sell <strong>15 cookies</strong> for <strong>$1.50 each</strong>. Did you make a profit or a loss, and by how much?</div>
+        <div style="background:#fff3da;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:.78rem;font-weight:700;color:var(--gold-d);">⚠️ Watch out — you made 20 cookies but only SOLD 15! Cost is based on what you MADE; revenue is based on what you SOLD.</div>
+
+        <div class="setup-grid">
+          <div class="setup-box">
+            <div class="sb-label">Cost (all 20 made)</div>
+            <div class="sb-formula">$0.50 × 20</div>
+            <div class="reveal-amt" onclick="revealAmt(this,'$10.00')"></div>
+          </div>
+          <div class="setup-box">
+            <div class="sb-label">Revenue (15 sold)</div>
+            <div class="sb-formula">$1.50 × 15</div>
+            <div class="reveal-amt" onclick="revealAmt(this,'$22.50')"></div>
+          </div>
+          <div class="setup-box">
+            <div class="sb-label">Profit / Loss</div>
+            <div class="sb-formula">revenue − cost</div>
+            <div class="reveal-amt" onclick="revealAmt(this,'$12.50')"></div>
+          </div>
+        </div>
+
+        <button class="solve-btn" onclick="showSolution('sol2')">Show Full Solution ✅</button>
+        <div class="full-solution" id="sol2">
+          <div class="fs-line">Cost = 20 × $0.50 = $10.00 (cost of ALL cookies made)</div>
+          <div class="fs-line">Revenue = 15 × $1.50 = $22.50 (only the ones SOLD)</div>
+          <div class="fs-line">Profit = $22.50 − $10.00 = </div>
+          <div class="fs-final">PROFIT of $12.50 📈 (even with 5 unsold cookies!)</div>
+        </div>
+      </div>
+
+      <div class="wb4">
+        <label>📝 Set Up Your Own</label>
+        <textarea placeholder="Make up your own shop scenario! Write the cost, revenue, and work out the profit or loss."></textarea>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- RECEIPT 4 · WRAP-UP                           -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="receipt" id="r4">
+    <div class="receipt-head">
+      <div class="rh-icon">🎯</div>
+      <div class="rh-title">
+        <h2>WRAP-UP — THE GOAL OF BUSINESS</h2>
+        <p>What's the point of all this maths?</p>
+      </div>
+      <span class="rh-time">⏱ 5 mins</span>
+    </div>
+    <div class="receipt-body">
+
+      <div class="goal-poll">
+        <div class="gp-icon">🤔</div>
+        <h3>What is the main goal for most businesses when it comes to profit and loss?</h3>
+        <p>Pick the answer you think is correct:</p>
+        <div class="goal-opts">
+          <div class="goal-opt" onclick="pickGoal(this,false)">To break even every time</div>
+          <div class="goal-opt" onclick="pickGoal(this,true)">To make a profit</div>
+          <div class="goal-opt" onclick="pickGoal(this,false)">To spend as much as possible</div>
+        </div>
+        <div class="goal-explain" id="goalExplain">
+          ✅ <strong>Correct! The main goal is to make a PROFIT.</strong> Businesses need Revenue to be greater than Cost so they can pay their workers, buy more materials, and grow. A business that keeps making a loss can't survive for long!
+        </div>
+      </div>
+
+      <div class="summary-receipt">
+        <h3>🧾 TODAY'S RECEIPT — KEY FORMULAS</h3>
+        <div class="sr-line"><span>Total Cost</span><span>unit cost × quantity</span></div>
+        <div class="sr-line"><span>Total Revenue</span><span>unit price × quantity sold</span></div>
+        <div class="sr-line"><span>Profit / Loss</span><span>Revenue − Cost</span></div>
+      </div>
+
+      <div class="checklist4">
+        <h3>✅ SESSION CHECKLIST — Tick what you've mastered:</h3>
+        <div class="cl4-row" onclick="tickCl4(this)"><div class="cl4-box">✓</div><span>I can explain what cost, revenue, profit, and loss mean.</span></div>
+        <div class="cl4-row" onclick="tickCl4(this)"><div class="cl4-box">✓</div><span>I can calculate total cost using multiplication (unit cost × quantity).</span></div>
+        <div class="cl4-row" onclick="tickCl4(this)"><div class="cl4-box">✓</div><span>I can calculate total revenue using multiplication (unit price × quantity sold).</span></div>
+        <div class="cl4-row" onclick="tickCl4(this)"><div class="cl4-box">✓</div><span>I can calculate profit or loss using Revenue − Cost.</span></div>
+        <div class="cl4-row" onclick="tickCl4(this)"><div class="cl4-box">✓</div><span>I understand that cost is based on items MADE, while revenue is based on items SOLD.</span></div>
+      </div>
+
+      <div class="complete-banner" id="completeBanner">
+        <h3>🏆 SESSION 1 COMPLETE!</h3>
+        <p>You've just run two mini businesses and solved real shop problems using multiplication and subtraction. You're thinking like a young entrepreneur — see you next session!</p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- NAV FOOTER -->
+  <div class="nav-foot4">
+    <button class="nav-btn4" id="prevBtn" onclick="navigate(-1)" disabled>← Back</button>
+    <span class="step-counter4" id="stepCounter">Receipt 1 of 5</span>
+    <button class="nav-btn4 next" id="nextBtn" onclick="navigate(1)">Next →</button>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+/* ── NAV ── */
+let cur = 0;
+const N = 5;
+
+function goTo(n) {
+  document.querySelectorAll('.receipt').forEach((r,i) => {
+    r.classList.toggle('active', i===n);
+    if (i===n) { r.style.animation='none'; void r.offsetWidth; r.style.animation=''; }
+  });
+  document.querySelectorAll('.price-tag').forEach((t,i) => t.classList.toggle('active', i===n));
+  cur = n;
+  document.getElementById('prevBtn').disabled = n===0;
+  document.getElementById('nextBtn').disabled = n===N-1;
+  document.getElementById('stepCounter').textContent = `Receipt ${n+1} of ${N}`;
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function navigate(d) { goTo(Math.max(0, Math.min(N-1, cur+d))); }
+
+/* ── WARM-UP REVEAL ── */
+function showMQ(btn, ans, note) {
+  const box = btn.nextElementSibling;
+  box.innerHTML = `<strong>${ans}</strong> <span style="font-size:.78rem;font-weight:600;color:#556;display:block;margin-top:4px;">${note}</span>`;
+  box.classList.add('show');
+  btn.textContent = '✓ Revealed';
+  btn.disabled = true;
+}
+
+/* ── VENTURE TABS ── */
+function switchVenture(n) {
+  document.querySelectorAll('.vt-btn').forEach((b,i) => b.classList.toggle('active', i===n));
+  document.querySelectorAll('.venture-panel').forEach((p,i) => p.classList.toggle('active', i===n));
+}
+
+/* ── REVEAL AMOUNT CELLS ── */
+function revealAmt(el, val) {
+  el.textContent = val;
+  el.classList.add('shown');
+  el.onclick = null;
+  el.style.cursor = 'default';
+}
+
+/* ── VENTURE VERDICT ── */
+function showVerdict(id) {
+  document.getElementById(id + 'verdict').classList.add('show');
+}
+
+/* ── PRACTICE SOLUTIONS ── */
+function showSolution(id) {
+  document.getElementById(id).classList.add('show');
+}
+
+/* ── GOAL POLL ── */
+function pickGoal(el, correct) {
+  document.querySelectorAll('.goal-opt').forEach(o => { o.classList.remove('correct-pick','wrong-pick'); o.style.pointerEvents='none'; });
+  if (correct) {
+    el.classList.add('correct-pick');
+  } else {
+    el.classList.add('wrong-pick');
+    document.querySelectorAll('.goal-opt').forEach(o => { if (o.textContent === 'To make a profit') o.classList.add('correct-pick'); });
+  }
+  document.getElementById('goalExplain').classList.add('show');
+}
+
+/* ── FINAL CHECKLIST ── */
+function tickCl4(row) {
+  const box = row.querySelector('.cl4-box');
+  box.classList.toggle('ticked');
+  const ticked = document.querySelectorAll('#r4 .cl4-box.ticked').length;
+  if (ticked >= 4) document.getElementById('completeBanner').classList.add('show');
+}
+</script>
+</body>
+</html>
